@@ -29,7 +29,7 @@ export const handler: Handler = async (event) => {
     console.log(`[Netlify] Sending email via Resend to ${receiverEmail}...`);
 
     const { data, error } = await resend.emails.send({
-      from: "DeployLynx <hello@deploylynx.com>",
+      from: "DeployLynx <onboarding@resend.dev>",
       to: [receiverEmail.trim()],
       replyTo: email.trim(),
       subject: `New Lead: ${name} from ${company || 'Startup'}`,

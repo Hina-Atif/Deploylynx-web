@@ -13,7 +13,7 @@ export default function Admin() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email === 'deploylynx@gmail.com') {
+      if (user && user.email === 'deploylynx26@gmail.com') {
         localStorage.setItem('deploylynx_admin', 'true');
         navigate('/blog');
       }
@@ -28,7 +28,7 @@ export default function Admin() {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       
-      if (result.user.email !== 'deploylynx@gmail.com') {
+      if (result.user.email !== 'deploylynx26@gmail.com') {
         setErrorMessage(`Access Denied: ${result.user.email} is not authorized.`);
         await auth.signOut();
       }

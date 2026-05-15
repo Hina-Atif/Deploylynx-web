@@ -102,7 +102,7 @@ export default function CaseStudies() {
     // Listen for auth state
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       const adminStatus = localStorage.getItem('deploylynx_admin') === 'true' || 
-                         (user && user.email === 'deploylynx@gmail.com');
+                         (user && user.email === 'deploylynx26@gmail.com');
       setIsAdmin(!!adminStatus);
     });
 
