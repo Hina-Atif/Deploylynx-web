@@ -7,8 +7,8 @@ import { auth } from '../services/firebase';
 
 export default function Admin() {
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,14 +23,19 @@ export default function Admin() {
 
   const handleGoogleLogin = async () => {
     setLoading(true);
+    setErrorMessage("");
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle navigation if email matches
-    } catch (err) {
+      const result = await signInWithPopup(auth, provider);
+      
+      if (result.user.email !== 'deploylynx@gmail.com') {
+        setErrorMessage(`Access Denied: ${result.user.email} is not authorized.`);
+        await auth.signOut();
+      }
+    } catch (err: any) {
       console.error("Auth error:", err);
-      setError(true);
-      setTimeout(() => setError(false), 2000);
+      setErrorMessage(err.message || "Failed to authenticate with Google");
+      setTimeout(() => setErrorMessage(""), 5000);
     } finally {
       setLoading(false);
     }
@@ -38,13 +43,14 @@ export default function Admin() {
 
   const handleLogin = (e: FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
     // Simple mock password for professional look
     if (password === "admin123") {
       localStorage.setItem('deploylynx_admin', 'true');
       navigate('/blog');
     } else {
-      setError(true);
-      setTimeout(() => setError(false), 2000);
+      setErrorMessage("Invalid Password");
+      setTimeout(() => setErrorMessage(""), 2000);
     }
   };
 
@@ -92,9 +98,13 @@ export default function Admin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className={`w-full bg-black border ${error ? 'border-red-500' : 'border-white/10 focus:border-cyan-400'} rounded-2xl py-5 px-6 text-sm transition-all outline-none text-center tracking-widest`}
+              className={`w-full bg-black border ${errorMessage ? 'border-red-500' : 'border-white/10 focus:border-cyan-400'} rounded-2xl py-5 px-6 text-sm transition-all outline-none text-center tracking-widest`}
             />
-            {error && <p className="text-red-500 text-[10px] uppercase font-bold text-center mt-2">Invalid Password</p>}
+            {errorMessage && (
+              <p className="text-red-500 text-[10px] uppercase font-bold text-center mt-2 px-4 leading-relaxed">
+                {errorMessage}
+              </p>
+            )}
 
             <button 
               type="submit"
