@@ -1,6 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Calendar, User, ArrowRight, Plus, X, Tag, Trash2 } from 'lucide-react';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { db, OperationType, handleFirestoreError, auth } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface BlogPost {
   id: string;
@@ -54,39 +57,61 @@ export default function Blog() {
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem('deploylynx_blogs');
-    if (saved) {
-      setBlogs(JSON.parse(saved));
-    } else {
-      setBlogs(INITIAL_BLOGS);
-    }
+    // Listen for blogs
+    const q = query(collection(db, 'blogs'), orderBy('date', 'desc'));
+    const unsubscribeBlogs = onSnapshot(q, (snapshot) => {
+      const blogList = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as BlogPost[];
+      
+      if (blogList.length === 0) {
+        setBlogs(INITIAL_BLOGS);
+      } else {
+        setBlogs(blogList);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'blogs');
+    });
 
-    const adminStatus = localStorage.getItem('deploylynx_admin') === 'true';
-    setIsAdmin(adminStatus);
+    // Listen for auth state
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      const adminStatus = localStorage.getItem('deploylynx_admin') === 'true' || 
+                         (user && user.email === 'deploylynx@gmail.com');
+      setIsAdmin(!!adminStatus);
+    });
+
+    return () => {
+      unsubscribeBlogs();
+      unsubscribeAuth();
+    };
   }, []);
 
-  const handleAddBlog = (e: FormEvent) => {
+  const handleAddBlog = async (e: FormEvent) => {
     e.preventDefault();
-    const blog: BlogPost = {
+    const blogData = {
       ...newBlog,
-      id: Date.now().toString(),
       content: "Full content coming soon...",
       author: "DeployLynx Team",
-      date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      date: new Date().toISOString(), // Use ISO string for reliable sorting
       readTime: "5 min read"
     };
     
-    const updated = [blog, ...blogs];
-    setBlogs(updated);
-    localStorage.setItem('deploylynx_blogs', JSON.stringify(updated));
-    setIsAdding(false);
-    setNewBlog({ title: "", excerpt: "", category: "Cloud", image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop" });
+    try {
+      await addDoc(collection(db, 'blogs'), blogData);
+      setIsAdding(false);
+      setNewBlog({ title: "", excerpt: "", category: "Cloud", image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop" });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'blogs');
+    }
   };
 
-  const handleDeleteBlog = (id: string) => {
-    const updated = blogs.filter(b => b.id !== id);
-    setBlogs(updated);
-    localStorage.setItem('deploylynx_blogs', JSON.stringify(updated));
+  const handleDeleteBlog = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'blogs', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `blogs/${id}`);
+    }
   };
 
   const filteredBlogs = blogs.filter(b => 
@@ -143,7 +168,8 @@ export default function Blog() {
                   <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Admin Session Active</span>
                 </div>
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
+                    await auth.signOut();
                     localStorage.removeItem('deploylynx_admin');
                     setIsAdmin(false);
                   }}
@@ -245,10 +271,10 @@ export default function Blog() {
                 </div>
                 
                 <div className="p-8 flex flex-col flex-grow">
-                  <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">
-                    <div className="flex items-center gap-2"><Calendar size={12}/> {post.date}</div>
-                    <div className="flex items-center gap-2 underline text-cyan-400/60 decoration-cyan-400/30">{post.readTime}</div>
-                  </div>
+                    <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">
+                      <div className="flex items-center gap-2"><Calendar size={12}/> {new Date(post.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+                      <div className="flex items-center gap-2 underline text-cyan-400/60 decoration-cyan-400/30">{post.readTime}</div>
+                    </div>
                   
                   <h3 className="text-2xl font-black mb-4 tracking-tighter leading-tight group-hover:text-cyan-400 transition-colors">
                     {post.title}

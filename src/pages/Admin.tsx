@@ -1,12 +1,40 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { motion } from 'motion/react';
-import { Lock, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Lock, ShieldCheck, ArrowRight, Chrome } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../services/firebase';
 
 export default function Admin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.email === 'deploylynx@gmail.com') {
+        localStorage.setItem('deploylynx_admin', 'true');
+        navigate('/blog');
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged will handle navigation if email matches
+    } catch (err) {
+      console.error("Auth error:", err);
+      setError(true);
+      setTimeout(() => setError(false), 2000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = (e: FormEvent) => {
     e.preventDefault();
@@ -33,13 +61,32 @@ export default function Admin() {
           <div className="w-16 h-16 rounded-2xl bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center text-cyan-400 mb-6">
             <Lock size={32} />
           </div>
-          <h1 className="text-3xl font-black tracking-tighter uppercase">Nexus Terminal</h1>
+          <h1 className="text-3xl font-black tracking-tighter uppercase">Admin Terminal</h1>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em] mt-2">Authorized Access Only</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
+        <div className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Access Key</label>
+            <button 
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full bg-cyan-400/10 border border-cyan-400/30 text-cyan-400 font-black py-5 rounded-2xl hover:bg-cyan-400/20 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-3 group"
+            >
+              <Chrome size={18} />
+              {loading ? "Authenticating..." : "Sign in with Google"}
+            </button>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/5"></div>
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase font-black tracking-[0.4em] text-cyan-400 bg-black px-4">
+              PASSWORD
+            </div>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
             <input 
               type="password" 
               value={password}
@@ -47,16 +94,16 @@ export default function Admin() {
               placeholder="••••••••"
               className={`w-full bg-black border ${error ? 'border-red-500' : 'border-white/10 focus:border-cyan-400'} rounded-2xl py-5 px-6 text-sm transition-all outline-none text-center tracking-widest`}
             />
-            {error && <p className="text-red-500 text-[10px] uppercase font-bold text-center mt-2">Invalid Protocol Key</p>}
-          </div>
+            {error && <p className="text-red-500 text-[10px] uppercase font-bold text-center mt-2">Invalid Password</p>}
 
-          <button 
-            type="submit"
-            className="w-full bg-white text-black font-black py-5 rounded-2xl hover:bg-cyan-400 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2 group"
-          >
-            Initiate Session <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-          </button>
-        </form>
+            <button 
+              type="submit"
+              className="w-full bg-white text-black font-black py-5 rounded-2xl hover:bg-cyan-400 transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2 group"
+            >
+              Login <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </form>
+        </div>
 
         <div className="mt-10 pt-10 border-t border-white/5 flex justify-between items-center opacity-30">
           <div className="flex items-center gap-2">

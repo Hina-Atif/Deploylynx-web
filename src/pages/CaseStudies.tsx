@@ -1,6 +1,9 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, type FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, Plus, X, Trash2 } from 'lucide-react';
+import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { db, OperationType, handleFirestoreError, auth } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const quotes = [
   { text: "Success is not final, failure is not fatal.", author: "Churchill" },
@@ -79,45 +82,68 @@ export default function CaseStudies() {
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem('deploylynx_cases');
-    if (saved) {
-      setCaseHistory(JSON.parse(saved));
-    } else {
-      setCaseHistory(DEFAULT_CASES);
-    }
+    // Listen for case studies
+    const q = query(collection(db, 'case_studies'), orderBy('createdAt', 'desc'));
+    const unsubscribeCases = onSnapshot(q, (snapshot) => {
+      const caseList = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as any[];
+      
+      if (caseList.length === 0) {
+        setCaseHistory(DEFAULT_CASES);
+      } else {
+        setCaseHistory(caseList);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'case_studies');
+    });
 
-    const adminStatus = localStorage.getItem('deploylynx_admin') === 'true';
-    setIsAdmin(adminStatus);
+    // Listen for auth state
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      const adminStatus = localStorage.getItem('deploylynx_admin') === 'true' || 
+                         (user && user.email === 'deploylynx@gmail.com');
+      setIsAdmin(!!adminStatus);
+    });
 
     const interval = setInterval(() => {
       setQuoteIndex((prev) => (prev + 1) % quotes.length);
     }, 5 * 60 * 1000); // Every 5 minutes
-    return () => clearInterval(interval);
+
+    return () => {
+      unsubscribeCases();
+      unsubscribeAuth();
+      clearInterval(interval);
+    };
   }, []);
 
-  const handleAddCase = (e: FormEvent) => {
+  const handleAddCase = async (e: FormEvent) => {
     e.preventDefault();
     const item = {
-      id: Date.now().toString(),
       category: newCase.category,
       title: newCase.title,
       image: newCase.image,
       problem: newCase.problem.split('\n').filter(l => l.trim()),
       solution: newCase.solution.split('\n').filter(l => l.trim()),
-      impact: newCase.impact.split('\n').filter(l => l.trim())
+      impact: newCase.impact.split('\n').filter(l => l.trim()),
+      createdAt: new Date().toISOString()
     };
 
-    const updated = [item, ...caseHistory];
-    setCaseHistory(updated);
-    localStorage.setItem('deploylynx_cases', JSON.stringify(updated));
-    setIsAdding(false);
-    setNewCase({ title: "", category: "Internal Deployment", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop", problem: "", solution: "", impact: "" });
+    try {
+      await addDoc(collection(db, 'case_studies'), item);
+      setIsAdding(false);
+      setNewCase({ title: "", category: "Internal Deployment", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop", problem: "", solution: "", impact: "" });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'case_studies');
+    }
   };
 
-  const handleDeleteCase = (id: string) => {
-    const updated = caseHistory.filter(c => c.id !== id);
-    setCaseHistory(updated);
-    localStorage.setItem('deploylynx_cases', JSON.stringify(updated));
+  const handleDeleteCase = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'case_studies', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `case_studies/${id}`);
+    }
   };
 
   return (

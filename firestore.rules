@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'deploylynx@gmail.com' && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Blogs collection
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow create: if isAdmin() && 
+        request.resource.data.keys().hasAll(['title', 'excerpt', 'category', 'image', 'content', 'author', 'date', 'readTime']) &&
+        request.resource.data.title is string && request.resource.data.title.size() <= 200 &&
+        request.resource.data.category in ['Cloud', 'Kubernetes', 'DevOps', 'Security', 'Engineering'];
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Case Studies collection
+    match /case_studies/{caseId} {
+      allow read: if true;
+      allow create: if isAdmin() &&
+        request.resource.data.keys().hasAll(['title', 'category', 'image', 'problem', 'solution', 'impact', 'createdAt']) &&
+        request.resource.data.title is string && request.resource.data.title.size() <= 200;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

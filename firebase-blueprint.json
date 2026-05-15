@@ -1,0 +1,46 @@
+{
+  "entities": {
+    "BlogPost": {
+      "title": "Blog Post",
+      "description": "A blog article posted by the DeployLynx team",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "content": { "type": "string" },
+        "author": { "type": "string" },
+        "date": { "type": "string" },
+        "category": { "type": "string" },
+        "readTime": { "type": "string" },
+        "image": { "type": "string" }
+      },
+      "required": ["title", "excerpt", "category", "image"]
+    },
+    "CaseStudy": {
+      "title": "Case Study",
+      "description": "A detailed breakdown of a deployment project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "image": { "type": "string" },
+        "problem": { "type": "array", "items": { "type": "string" } },
+        "solution": { "type": "array", "items": { "type": "string" } },
+        "impact": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["title", "category", "image", "problem", "solution", "impact"]
+    }
+  },
+  "firestore": {
+    "/blogs/{blogId}": {
+      "schema": "BlogPost",
+      "description": "Collection of blog posts"
+    },
+    "/case_studies/{caseId}": {
+      "schema": "CaseStudy",
+      "description": "Collection of case studies"
+    }
+  }
+}
